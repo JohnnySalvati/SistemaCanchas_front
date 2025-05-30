@@ -1,0 +1,56 @@
+.gridWrapper {
+  overflow-x: auto;
+  padding: 20px;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #f9f9f9;
+}
+
+.th, .td {
+  border: 1px solid #aaa;
+  padding: 7px 5px;
+  min-width: 110px;
+  text-align: center;
+}
+
+.th {
+  background: #e0e0e0;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.reserved {
+  background: #ffe4e1;
+  color: #a00;
+  font-weight: bold;
+}
+
+.free {
+  background: #f8fff8;
+}
+
+.button {
+  font-size: 13px;
+  background: #7ed957;
+  color: #222;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 8px;
+  margin-top: 3px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px #aaa;
+  transition: background 0.2s;
+}
+
+.buttonReserved {
+  background: #f6b1b1;
+}
+
+.tableRow:hover .td {
+  background: #d7e9fd;
+}
