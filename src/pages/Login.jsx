@@ -5,13 +5,14 @@ function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const backend = import.meta.env.VITE_BACKEND_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
       // Cambia la URL si tu backend está en otro host/puerto
-      const response = await axios.post("http://127.0.0.1:8000/api-token-auth/", {
+      const response = await axios.post(`${backend}/api-token-auth/`, {
         username,
         password,
       });

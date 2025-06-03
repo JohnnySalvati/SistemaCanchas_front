@@ -2,8 +2,17 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import styles from './ScheduleGrid.module.css';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { parseISO } from "date-fns";
+import { registerLocale } from "react-datepicker";
+import es from "date-fns/locale/es";
+registerLocale("es", es);
+
 
 function ScheduleGrid() {
+  const backend = import.meta.env.VITE_BACKEND_URL;
+
   const { token, logout } = useAuth();
   const [reload, setReload] = useState(0);
 
@@ -15,7 +24,7 @@ function ScheduleGrid() {
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`; // YYYY-MM-DD en hora local
   }); 
-  console.log(date);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   
   const [courts, setCourts] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -42,19 +51,19 @@ function ScheduleGrid() {
   }, [customerName, customerPhone]);
 
   const startTime = "08:00";
-  const endTime = "20:00";
+  const endTime = "24:00";
   const interval = 30;
   const timeslots = getTimeslots(startTime, endTime, interval);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const resCourts = await axios.get("http://127.0.0.1:8000/api/courts/", {
+      const resCourts = await axios.get(`${backend}/api/courts/`, {
         headers: { Authorization: `Token ${token}` }
       });
       setCourts(resCourts.data);
 
-      const resBookings = await axios.get(`http://127.0.0.1:8000/api/bookings/?date=${date}`, {
+      const resBookings = await axios.get(`${backend}/api/bookings/?date=${date}`, {
         headers: { Authorization: `Token ${token}` }
       });
       setBookings(resBookings.data);
@@ -63,12 +72,24 @@ function ScheduleGrid() {
     fetchData();
   }, [token, date, reload]);
 
-  // Avanzar y retroceder días
-  const changeDay = (delta) => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + delta);
-    setDate(d.toISOString().slice(0,10));
-  };
+  // // Avanzar y retroceder días
+  // const changeDay = (delta) => {
+  //   const d = new Date(date);
+  //   d.setDate(d.getDate() + delta);
+  //   setDate(d.toISOString().slice(0,10));
+  // };
+
+  // dateStr: "YYYY-MM-DD", days: int (positivo o negativo)
+  function sumarDias(dateStr, days) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    d.setDate(d.getDate() + days);
+    // Retorna como "YYYY-MM-DD"
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   function getTimeslots(start, end, intervalMinutes) {
     const slots = [];
@@ -81,24 +102,7 @@ function ScheduleGrid() {
     return slots;
   }
 
-  const handleDeleteBooking = async (bookingId) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta reserva?")) return;
-    try {
-      await axios.delete(`http://127.0.0.1:8000/api/bookings/${bookingId}/`, {
-        headers: { Authorization: `Token ${token}` }
-      });
-      // Actualizá la grilla SIEMPRE
-      setReload(r => r + 1);
-      // Si el modal está abierto, filtrá la reserva eliminada
-      if (customerBookings) {
-        setCustomerBookings(customerBookings.filter(b => b.id !== bookingId));
-      }
-    } catch (err) {
-      alert("No se pudo eliminar la reserva");
-    }
-  };
-
-  // Obtiene la reserva para esa cancha y horario
+    // Obtiene la reserva para esa cancha y horario
   // time es "HH:MM"
   const getBookingForTimeslot = (courtId, time) => {
     // Convierte a minutos para comparar fácilmente
@@ -122,7 +126,7 @@ function ScheduleGrid() {
   const handleShowCustomerBookings = async (customerId, name, phone) => {
     setCustomerName(name);
     setCustomerPhone(phone);
-    const res = await axios.get(`http://127.0.0.1:8000/api/bookings/?customer=${customerId}`, {
+    const res = await axios.get(`${backend}/api/bookings/?customer=${customerId}`, {
       headers: { Authorization: `Token ${token}` }
     });
     setCustomerBookings(res.data);
@@ -130,16 +134,85 @@ function ScheduleGrid() {
 
   return (
   <div className={styles.pageWrapper}>
-    {/* Sticky header compacto */}
     <div className={styles.stickyHeader}>
       <div className={styles.headerRow}>
         <span className={styles.titulo}>Belgrano Tenis & Padel - Sistema de Reservas</span>
-        <button className={styles.logoutBtn} onClick={logout}>Logout</button>
+        <div className={styles.superiorNavWrapper}>
+          <button
+            className={styles.navBtnSmallTop}
+            onClick={() => setDate(sumarDias(date, 7))}
+            title="Avanzar 7 días"
+          >
+            {formatFecha(sumarDias(date, 7), "short")}
+          </button>
+        </div>
+        <button className={styles.logoutBtn} onClick={logout}>
+          Logout
+        </button>
       </div>
-      <div className={styles.navRow}>
-        <button className={styles.navBtn} onClick={() => changeDay(-1)}>←</button>
-        <span className={styles.fechaLabel}>{formatFecha(date)}</span>
-        <button className={styles.navBtn} onClick={() => changeDay(1)}>→</button>
+      <div className={styles.navRowColumn}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
+          <button 
+            className={styles.navBtnSmall}
+            onClick={() => setDate(sumarDias(date, -1))}
+            title="Día anterior">
+              {formatFecha(sumarDias(date, -1), 'short')}
+          </button>
+          {/* <div style={{ position: "relative" }}> */}
+          <button
+            className={`${styles.fechaLabel} ${getWeekdayClass(date)} ${styles.navBtnCentral}`}
+            onClick={() => setShowDatePicker(true)}
+            // style={{ cursor: "pointer", minWidth: 170 }}
+          >
+            {formatFecha(date, 'long')}
+          </button>
+          {showDatePicker && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                transform: "translateX(-50%)",
+                top: "calc(100% + 0px)", // Debajo del botón y con espacio
+                zIndex: 9999,
+                background: "#fff",
+                borderRadius: 10,
+                boxShadow: "0 4px 18px #0002",
+                padding: "6px 8px",
+              }}
+            >
+            <DatePicker
+              locale="es"
+              selected={parseISO(date)}
+              onChange={d => {
+                setDate(d.toISOString().slice(0, 10));
+                setShowDatePicker(false);
+              }}
+              inline
+              minDate={new Date(2024, 0, 1)}
+              maxDate={new Date(2030, 11, 31)}
+              onClickOutside={() => setShowDatePicker(false)}
+              // Permite cambiar mes y año arriba del calendario
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              // locale="es" // si querés español
+            />
+          </div>
+          )}
+          <button 
+            className={styles.navBtnSmall}
+            onClick={() => setDate(sumarDias(date, 1))}
+            aria-label="Día siguiente"
+            >
+              {formatFecha(sumarDias(date, 1), 'short')}
+          </button>
+        </div>
+        <button className={styles.navBtnSmall}
+          onClick={() => setDate(sumarDias(date, -7))}
+          title="Retroceder 7 días"
+        >
+          {formatFecha(sumarDias(date, -7), "short")}
+        </button>
       </div>
     </div>
     {/* Grilla scrollable */}
@@ -147,9 +220,9 @@ function ScheduleGrid() {
       <table className={styles.table}>
         <thead>
           <tr>
-            <th className={`${styles.th}`}>Horario</th>
+            <th className={`${styles.th} ${getWeekdayClass(date)}`}>Horario</th>
             {courts.map(court => (
-              <th key={court.id} className={styles.th}>
+              <th key={court.id} className={`${styles.th} ${getWeekdayClass(date)}`}>
                 {court.name}
               </th>
             ))}
@@ -158,7 +231,7 @@ function ScheduleGrid() {
         <tbody>
           {timeslots.map(time => (
             <tr key={time}>
-              <td className={`${styles.td} ${styles.timeCol}`}>{time}</td>
+              <td className={`${styles.td} ${styles.timeCol} ${getWeekdayClass(date)}`}>{time}</td>
               {courts.map(court => {
                 const booking = getBookingForTimeslot(court.id, time);
                 const isBookingStart = booking && booking.start_time.slice(0,5) === time;
@@ -212,12 +285,13 @@ function ScheduleGrid() {
                       )}
                     </div>
                   ) : (
-                    <button
-                      className={styles.button}
-                      onClick={() => setFormParams({ court: court.id, courtName:court.name, time, date })}
-                    >
-                      Reservar
-                    </button>
+                  <button
+                    className={styles.reserveBtn}
+                    onClick={() => setFormParams({ court: court.id, courtName: court.name, time, date })}
+                    aria-label="Reservar"
+                  >
+                    {/* vacío, solo el fondo del botón */}
+                  </button>
                   )}
                   </td>
                 );
@@ -290,7 +364,7 @@ function ScheduleGrid() {
               style={{ marginLeft: 10 }}
               onClick={() => setEditCustomer(true)}
             >
-              Editar
+              Editar cliente
             </button>
           ) : (
             <>
@@ -301,7 +375,7 @@ function ScheduleGrid() {
                   try {
                     // Hacé PUT al endpoint de clientes (ajustá si tu API es distinta)
                     const customerId = customerBookings?.[0]?.customer;
-                    await axios.put(`http://127.0.0.1:8000/api/customers/${customerId}/`, {
+                    await axios.put(`${backend}/api/customers/${customerId}/`, {
                       name: editedName,
                       phone: editedPhone,
                     }, {
@@ -393,7 +467,7 @@ function ScheduleGrid() {
               style={{background:"#e64646", color:"#fff"}}
               onClick={async () => {
                 try {
-                  await axios.delete(`http://127.0.0.1:8000/api/bookings/${deleteConfirm.id}/`, {
+                  await axios.delete(`${backend}/api/bookings/${deleteConfirm.id}/`, {
                     headers: { Authorization: `Token ${token}` }
                   });
                   setReload(r => r + 1);
@@ -415,18 +489,29 @@ function ScheduleGrid() {
     )}
 
     <footer className={styles.footer}>
-      © {new Date().getFullYear()} Desarrollado por InSoft
+      © {new Date().getFullYear()} Desarrollado por InSoft - www.insoft.ar
     </footer>
   </div>
 );
 }
 
-function formatFecha(dateStr) {
+function formatFecha(dateStr, format = "long") {
   const [year, month, day] = dateStr.split('-').map(Number);
-  const fecha = new Date(year, month - 1, day); // MES EMPIEZA EN 0
-  const opciones = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-  return fecha.toLocaleDateString('es-AR', opciones);
+  const fecha = new Date(year, month - 1, day);
+
+  if (format === "long") {
+    // martes, 3 de junio de 2025
+    const opciones = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    return fecha.toLocaleDateString('es-AR', opciones);
+  } else if (format === "short") {
+    // Martes 3
+    const opciones = { weekday: 'long', day: 'numeric' };
+    let s = fecha.toLocaleDateString('es-AR', opciones);
+    return s.charAt(0).toUpperCase() + s.slice(1); // Primera mayúscula
+  }
+  return dateStr;
 }
+
 
 function getEndTimeOptions(start, end, interval) {
   // start y end son strings: "09:00", "21:00", interval en minutos
@@ -443,6 +528,7 @@ function getEndTimeOptions(start, end, interval) {
 
 // Mini formulario rápido para reservar una celda
 function QuickCreateForm({ court, courtName, time, date, onClose, onCreated }) {
+  const backend = import.meta.env.VITE_BACKEND_URL;
   const { token } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [customer, setCustomer] = useState(""); // customer.id si existe
@@ -458,7 +544,7 @@ function QuickCreateForm({ court, courtName, time, date, onClose, onCreated }) {
   const interval = 30; // minutos
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:8000/api/customers/", {
+    axios.get(`${backend}/api/customers/`, {
       headers: { Authorization: `Token ${token}` }
     }).then(res => setCustomers(res.data));
     // Sugerido: primer valor después del start_time
@@ -503,7 +589,7 @@ function QuickCreateForm({ court, courtName, time, date, onClose, onCreated }) {
       try {
         // Crea cliente nuevo
         const res = await axios.post(
-          "http://127.0.0.1:8000/api/customers/",
+          `${backend}/api/customers/`,
           { name: customerInput.trim(), phone: customerPhone },
           { headers: { Authorization: `Token ${token}` } }
         );
@@ -517,7 +603,7 @@ function QuickCreateForm({ court, courtName, time, date, onClose, onCreated }) {
 
     // Crear reserva normalmente
     try {
-      await axios.post("http://127.0.0.1:8000/api/bookings/", {
+      await axios.post(`${backend}/api/bookings/`, {
         date,
         start_time: time,
         end_time: endTime,
@@ -603,6 +689,26 @@ function QuickCreateForm({ court, courtName, time, date, onClose, onCreated }) {
     </div>
   );
 }
+
+const WEEKDAYS = [
+  { name: 'Domingo',   class: styles.bgDomingo },
+  { name: 'Lunes',     class: styles.bgLunes },
+  { name: 'Martes',    class: styles.bgMartes },
+  { name: 'Miércoles', class: styles.bgMiercoles },
+  { name: 'Jueves',    class: styles.bgJueves },
+  { name: 'Viernes',   class: styles.bgViernes },
+  { name: 'Sábado',    class: styles.bgSabado }
+];
+
+function getWeekdayClass(dateStr) {
+  // Suponé que dateStr es "2025-05-29"
+  const [year, month, day] = dateStr.split("-");
+  // JS: los meses son 0-based, por eso el -1
+  const date = new Date(year, month - 1, day);
+  const dayIdx = date.getDay(); // 0 = Domingo, ..., 6 = Sábado
+  return WEEKDAYS[dayIdx].class;
+}
+
 
 
 export default ScheduleGrid;
